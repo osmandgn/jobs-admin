@@ -68,8 +68,10 @@ export default function ReportsPage() {
   });
 
   // Extract data from API response
-  const reportsResponse = (reportsData as any)?.data;
-  const rawReports = reportsResponse?.data || reportsResponse?.reports;
+  // API returns: { data: { success: true, data: { reports: [], total, ... } } }
+  const apiResponse = (reportsData as any)?.data;
+  const reportsResponse = apiResponse?.data || apiResponse;
+  const rawReports = reportsResponse?.reports || reportsResponse?.data;
   const reports: Report[] = Array.isArray(rawReports) ? rawReports : [];
   const totalPages = reportsResponse?.totalPages || 1;
   const totalReports = reportsResponse?.total || 0;

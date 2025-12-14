@@ -259,4 +259,34 @@ export const logsAPI = {
   }) => api.get<{ data: PaginatedResponse<AdminLog> }>('/admin/logs', { params }),
 };
 
+// System Monitoring
+export const monitoringAPI = {
+  getSystemOverview: () =>
+    api.get('/admin/monitoring/system').then(res => res.data),
+
+  getApiMetrics: () =>
+    api.get('/admin/monitoring/api-metrics').then(res => res.data),
+
+  getEndpointMetrics: (params?: { limit?: number; sort?: 'count' | 'avgTime' }) =>
+    api.get('/admin/monitoring/endpoints', { params }).then(res => res.data),
+
+  getSlowestEndpoints: (limit: number = 10) =>
+    api.get('/admin/monitoring/endpoints/slowest', { params: { limit } }).then(res => res.data),
+
+  getErrors: (params?: { limit?: number; type?: string }) =>
+    api.get('/admin/monitoring/errors', { params }).then(res => res.data),
+
+  getErrorTrends: (days: number = 7) =>
+    api.get('/admin/monitoring/errors/trends', { params: { days } }).then(res => res.data),
+
+  getErrorsByType: (date?: string) =>
+    api.get('/admin/monitoring/errors/by-type', { params: { date } }).then(res => res.data),
+
+  getQueryAnalytics: (limit: number = 20) =>
+    api.get('/admin/monitoring/queries', { params: { limit } }).then(res => res.data),
+
+  getLogs: (params?: { level?: string; search?: string; limit?: number }) =>
+    api.get('/admin/monitoring/logs', { params }).then(res => res.data),
+};
+
 export default api;

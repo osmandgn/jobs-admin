@@ -60,8 +60,10 @@ export default function ApplicationsPage() {
   });
 
   // Extract data from API response
-  const responseData = (applicationsData as any)?.data;
-  const rawApplications = responseData?.data || responseData?.applications;
+  // API returns: { data: { success: true, data: { applications: [], total, ... } } }
+  const apiResponse = (applicationsData as any)?.data;
+  const responseData = apiResponse?.data || apiResponse;
+  const rawApplications = responseData?.applications || responseData?.data;
   const applications: Application[] = Array.isArray(rawApplications) ? rawApplications : [];
   const totalPages = responseData?.totalPages || 1;
   const totalApplications = responseData?.total || 0;

@@ -66,8 +66,10 @@ export default function UsersPage() {
   });
 
   // Extract data from API response
-  const usersResponse = (usersData as any)?.data;
-  const rawUsers = usersResponse?.data || usersResponse?.users;
+  // API returns: { data: { success: true, data: { users: [], total, ... } } }
+  const apiResponse = (usersData as any)?.data;
+  const usersResponse = apiResponse?.data || apiResponse;
+  const rawUsers = usersResponse?.users || usersResponse?.data;
   const users: User[] = Array.isArray(rawUsers) ? rawUsers : [];
   const totalPages = usersResponse?.totalPages || 1;
   const totalUsers = usersResponse?.total || 0;

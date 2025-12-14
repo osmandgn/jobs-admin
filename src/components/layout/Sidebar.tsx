@@ -14,6 +14,7 @@ import {
   LogOut,
   Shield,
   X,
+  Activity,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Applications', href: '/applications', icon: FileText },
   { name: 'Reports', href: '/reports', icon: Flag },
   { name: 'Categories', href: '/categories', icon: FolderTree },
+  { name: 'Monitoring', href: '/monitoring', icon: Activity },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

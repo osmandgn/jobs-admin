@@ -80,8 +80,10 @@ export default function JobsPage() {
   });
 
   // Extract data from API response
-  const jobsResponse = (jobsData as any)?.data;
-  const rawJobs = jobsResponse?.data || jobsResponse?.jobs;
+  // API returns: { data: { success: true, data: { jobs: [], total, ... } } }
+  const apiResponse = (jobsData as any)?.data;
+  const jobsResponse = apiResponse?.data || apiResponse;
+  const rawJobs = jobsResponse?.jobs || jobsResponse?.data;
   const jobs: Job[] = Array.isArray(rawJobs) ? rawJobs : [];
   const totalPages = jobsResponse?.totalPages || 1;
   const totalJobs = jobsResponse?.total || 0;
