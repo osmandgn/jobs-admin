@@ -4,10 +4,6 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Settings,
-  Globe,
-  Bell,
-  Shield,
-  CreditCard,
   Database,
   Save,
   RefreshCw,
@@ -30,19 +26,11 @@ interface SettingsSection {
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
-  const [activeSection, setActiveSection] = useState('general');
+  const [activeSection, setActiveSection] = useState('jobs');
   const [saved, setSaved] = useState(false);
 
-  // Default settings state
+  // Default settings state - only settings that exist in backend
   const defaultSettings = {
-    // General
-    siteName: 'GigHub UK',
-    siteDescription: 'UK Gig Economy Platform',
-    supportEmail: 'support@gighub.uk',
-    contactPhone: '+44 20 1234 5678',
-    timezone: 'Europe/London',
-    currency: 'GBP',
-
     // Jobs (snake_case to match backend)
     job_requires_approval: true,
     max_images_per_job: 5,
@@ -51,37 +39,9 @@ export default function SettingsPage() {
     min_pay_amount: 10,
     max_pay_amount: 10000,
 
-    // Users
-    emailVerificationRequired: true,
-    phoneVerificationRequired: false,
-    profilePhotoRequired: false,
-    maxProfilePhotoSize: 5,
-    allowSocialLogin: true,
-
-    // Notifications
-    emailNotifications: true,
-    pushNotifications: true,
-    smsNotifications: false,
-    marketingEmails: true,
-    weeklyDigest: true,
-
-    // Security
-    twoFactorEnabled: false,
-    sessionTimeout: 60,
-    maxLoginAttempts: 5,
-    passwordMinLength: 8,
-    requireSpecialChars: true,
-
-    // Payments
-    stripeEnabled: true,
-    paypalEnabled: false,
-    platformFeePercent: 10,
-    minimumWithdrawal: 50,
-    withdrawalProcessingDays: 3,
-
     // Maintenance
-    maintenanceMode: false,
-    maintenanceMessage: 'We are currently performing maintenance. Please check back soon.',
+    maintenance_mode: false,
+    maintenance_message: 'We are currently performing maintenance. Please check back soon.',
 
     // App Version
     min_app_version_ios: '1.0.0',
@@ -123,49 +83,31 @@ export default function SettingsPage() {
   // Update local settings when API data loads
   useEffect(() => {
     if (settingsData) {
-      const apiSettings = (settingsData as any)?.data || settingsData;
-      if (apiSettings && typeof apiSettings === 'object') {
-        setSettings((prev) => ({ ...prev, ...apiSettings }));
+      // Handle both array format (from backend) and object format
+      const apiData = (settingsData as any)?.data || settingsData;
+      let settingsMap: Record<string, any> = {};
+
+      if (apiData?.settings && Array.isArray(apiData.settings)) {
+        // Backend returns { settings: [{ key, value, ... }] }
+        for (const setting of apiData.settings) {
+          settingsMap[setting.key] = setting.value;
+        }
+      } else if (apiData && typeof apiData === 'object' && !Array.isArray(apiData)) {
+        settingsMap = apiData;
+      }
+
+      if (Object.keys(settingsMap).length > 0) {
+        setSettings((prev) => ({ ...prev, ...settingsMap }));
       }
     }
   }, [settingsData]);
 
   const sections: SettingsSection[] = [
     {
-      id: 'general',
-      title: 'General',
-      icon: <Globe className="w-5 h-5" />,
-      description: 'Basic site configuration',
-    },
-    {
       id: 'jobs',
       title: 'Jobs',
       icon: <Database className="w-5 h-5" />,
       description: 'Job posting settings',
-    },
-    {
-      id: 'users',
-      title: 'Users',
-      icon: <Shield className="w-5 h-5" />,
-      description: 'User account settings',
-    },
-    {
-      id: 'notifications',
-      title: 'Notifications',
-      icon: <Bell className="w-5 h-5" />,
-      description: 'Email and push notifications',
-    },
-    {
-      id: 'security',
-      title: 'Security',
-      icon: <Shield className="w-5 h-5" />,
-      description: 'Security and authentication',
-    },
-    {
-      id: 'payments',
-      title: 'Payments',
-      icon: <CreditCard className="w-5 h-5" />,
-      description: 'Payment gateway settings',
     },
     {
       id: 'maintenance',
@@ -185,13 +127,30 @@ export default function SettingsPage() {
     if (activeSection === 'maintenance') {
       // Use separate maintenance endpoint
       maintenanceMutation.mutate({
-        enabled: settings.maintenanceMode,
-        message: settings.maintenanceMessage,
+        enabled: settings.maintenance_mode,
+        message: settings.maintenance_message,
       });
-    } else {
-      // For other settings, exclude maintenance fields and update individually
-      const { maintenanceMode, maintenanceMessage, ...otherSettings } = settings;
-      updateMutation.mutate(otherSettings);
+    } else if (activeSection === 'jobs') {
+      // Only update job-related settings
+      const jobSettings = {
+        job_requires_approval: settings.job_requires_approval,
+        max_images_per_job: settings.max_images_per_job,
+        job_expiry_days: settings.job_expiry_days,
+        featured_job_price: settings.featured_job_price,
+        min_pay_amount: settings.min_pay_amount,
+        max_pay_amount: settings.max_pay_amount,
+      };
+      updateMutation.mutate(jobSettings);
+    } else if (activeSection === 'appversion') {
+      // Only update app version settings
+      const appVersionSettings = {
+        min_app_version_ios: settings.min_app_version_ios,
+        min_app_version_android: settings.min_app_version_android,
+        force_update_message: settings.force_update_message,
+        app_store_url: settings.app_store_url,
+        play_store_url: settings.play_store_url,
+      };
+      updateMutation.mutate(appVersionSettings);
     }
   };
 
@@ -228,59 +187,6 @@ export default function SettingsPage() {
 
   const renderSettingsContent = () => {
     switch (activeSection) {
-      case 'general':
-        return (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Site Name"
-                value={settings.siteName}
-                onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
-              />
-              <Input
-                label="Site Description"
-                value={settings.siteDescription}
-                onChange={(e) => setSettings({ ...settings, siteDescription: e.target.value })}
-              />
-              <Input
-                label="Support Email"
-                type="email"
-                value={settings.supportEmail}
-                onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
-              />
-              <Input
-                label="Contact Phone"
-                value={settings.contactPhone}
-                onChange={(e) => setSettings({ ...settings, contactPhone: e.target.value })}
-              />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
-                <select
-                  value={settings.timezone}
-                  onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="Europe/London">Europe/London (GMT)</option>
-                  <option value="America/New_York">America/New York (EST)</option>
-                  <option value="America/Los_Angeles">America/Los Angeles (PST)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                <select
-                  value={settings.currency}
-                  onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="GBP">British Pound (£)</option>
-                  <option value="USD">US Dollar ($)</option>
-                  <option value="EUR">Euro (€)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        );
-
       case 'jobs':
         return (
           <div className="space-y-6">
@@ -340,220 +246,6 @@ export default function SettingsPage() {
           </div>
         );
 
-      case 'users':
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Email Verification Required</p>
-                <p className="text-sm text-gray-500">Users must verify email before accessing features</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.emailVerificationRequired}
-                onChange={(value) => setSettings({ ...settings, emailVerificationRequired: value })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Phone Verification Required</p>
-                <p className="text-sm text-gray-500">Users must verify phone number</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.phoneVerificationRequired}
-                onChange={(value) => setSettings({ ...settings, phoneVerificationRequired: value })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Profile Photo Required</p>
-                <p className="text-sm text-gray-500">Users must upload a profile photo</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.profilePhotoRequired}
-                onChange={(value) => setSettings({ ...settings, profilePhotoRequired: value })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Allow Social Login</p>
-                <p className="text-sm text-gray-500">Enable Google and Apple sign-in</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.allowSocialLogin}
-                onChange={(value) => setSettings({ ...settings, allowSocialLogin: value })}
-              />
-            </div>
-            <Input
-              label="Max Profile Photo Size (MB)"
-              type="number"
-              value={settings.maxProfilePhotoSize.toString()}
-              onChange={(e) =>
-                setSettings({ ...settings, maxProfilePhotoSize: parseInt(e.target.value) })
-              }
-            />
-          </div>
-        );
-
-      case 'notifications':
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Email Notifications</p>
-                <p className="text-sm text-gray-500">Send email notifications to users</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.emailNotifications}
-                onChange={(value) => setSettings({ ...settings, emailNotifications: value })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Push Notifications</p>
-                <p className="text-sm text-gray-500">Send push notifications to mobile devices</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.pushNotifications}
-                onChange={(value) => setSettings({ ...settings, pushNotifications: value })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">SMS Notifications</p>
-                <p className="text-sm text-gray-500">Send SMS notifications for important updates</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.smsNotifications}
-                onChange={(value) => setSettings({ ...settings, smsNotifications: value })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Marketing Emails</p>
-                <p className="text-sm text-gray-500">Send promotional and marketing emails</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.marketingEmails}
-                onChange={(value) => setSettings({ ...settings, marketingEmails: value })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Weekly Digest</p>
-                <p className="text-sm text-gray-500">Send weekly summary emails to users</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.weeklyDigest}
-                onChange={(value) => setSettings({ ...settings, weeklyDigest: value })}
-              />
-            </div>
-          </div>
-        );
-
-      case 'security':
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Two-Factor Authentication</p>
-                <p className="text-sm text-gray-500">Require 2FA for admin accounts</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.twoFactorEnabled}
-                onChange={(value) => setSettings({ ...settings, twoFactorEnabled: value })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Require Special Characters</p>
-                <p className="text-sm text-gray-500">Passwords must contain special characters</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.requireSpecialChars}
-                onChange={(value) => setSettings({ ...settings, requireSpecialChars: value })}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Session Timeout (minutes)"
-                type="number"
-                value={settings.sessionTimeout.toString()}
-                onChange={(e) =>
-                  setSettings({ ...settings, sessionTimeout: parseInt(e.target.value) })
-                }
-              />
-              <Input
-                label="Max Login Attempts"
-                type="number"
-                value={settings.maxLoginAttempts.toString()}
-                onChange={(e) =>
-                  setSettings({ ...settings, maxLoginAttempts: parseInt(e.target.value) })
-                }
-              />
-              <Input
-                label="Minimum Password Length"
-                type="number"
-                value={settings.passwordMinLength.toString()}
-                onChange={(e) =>
-                  setSettings({ ...settings, passwordMinLength: parseInt(e.target.value) })
-                }
-              />
-            </div>
-          </div>
-        );
-
-      case 'payments':
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">Stripe Payments</p>
-                <p className="text-sm text-gray-500">Enable Stripe payment processing</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.stripeEnabled}
-                onChange={(value) => setSettings({ ...settings, stripeEnabled: value })}
-              />
-            </div>
-            <div className="flex items-center justify-between py-4 border-b">
-              <div>
-                <p className="font-medium text-gray-900">PayPal Payments</p>
-                <p className="text-sm text-gray-500">Enable PayPal payment processing</p>
-              </div>
-              <ToggleSwitch
-                enabled={settings.paypalEnabled}
-                onChange={(value) => setSettings({ ...settings, paypalEnabled: value })}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Platform Fee (%)"
-                type="number"
-                value={settings.platformFeePercent.toString()}
-                onChange={(e) =>
-                  setSettings({ ...settings, platformFeePercent: parseInt(e.target.value) })
-                }
-              />
-              <Input
-                label="Minimum Withdrawal (£)"
-                type="number"
-                value={settings.minimumWithdrawal.toString()}
-                onChange={(e) =>
-                  setSettings({ ...settings, minimumWithdrawal: parseInt(e.target.value) })
-                }
-              />
-              <Input
-                label="Withdrawal Processing (Days)"
-                type="number"
-                value={settings.withdrawalProcessingDays.toString()}
-                onChange={(e) =>
-                  setSettings({ ...settings, withdrawalProcessingDays: parseInt(e.target.value) })
-                }
-              />
-            </div>
-          </div>
-        );
-
       case 'maintenance':
         return (
           <div className="space-y-6">
@@ -565,13 +257,13 @@ export default function SettingsPage() {
                 </p>
               </div>
               <ToggleSwitch
-                enabled={settings.maintenanceMode}
-                onChange={(value) => setSettings({ ...settings, maintenanceMode: value })}
+                enabled={settings.maintenance_mode}
+                onChange={(value) => setSettings({ ...settings, maintenance_mode: value })}
               />
             </div>
-            {settings.maintenanceMode && (
+            {settings.maintenance_mode && (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-amber-800 font-medium">⚠️ Maintenance Mode is Active</p>
+                <p className="text-amber-800 font-medium">Maintenance Mode is Active</p>
                 <p className="text-amber-600 text-sm mt-1">
                   Users will see the maintenance message instead of the platform.
                 </p>
@@ -582,8 +274,8 @@ export default function SettingsPage() {
                 Maintenance Message
               </label>
               <textarea
-                value={settings.maintenanceMessage}
-                onChange={(e) => setSettings({ ...settings, maintenanceMessage: e.target.value })}
+                value={settings.maintenance_message}
+                onChange={(e) => setSettings({ ...settings, maintenance_message: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500"
                 rows={4}
                 placeholder="Enter maintenance message..."
