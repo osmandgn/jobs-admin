@@ -141,8 +141,8 @@ export const jobsAPI = {
   updateStatus: (id: string, status: Job['status']) =>
     api.patch<{ data: Job }>(`/admin/jobs/${id}/status`, { status }),
 
-  delete: (id: string) =>
-    api.delete(`/admin/jobs/${id}`),
+  delete: (id: string, reason: string) =>
+    api.delete(`/admin/jobs/${id}`, { data: { reason } }),
 
   getApplications: (id: string) =>
     api.get<{ data: Application[] }>(`/admin/jobs/${id}/applications`),
@@ -239,8 +239,22 @@ export const settingsAPI = {
   getAll: () =>
     api.get<{ data: Record<string, any> }>('/admin/settings'),
 
-  update: (data: Record<string, any>) =>
-    api.put('/admin/settings', data),
+  update: (key: string, value: any) =>
+    api.put(`/admin/settings/${key}`, { value }),
+
+  updateMultiple: async (data: Record<string, any>) => {
+    // Update each setting individually
+    const promises = Object.entries(data).map(([key, value]) =>
+      api.put(`/admin/settings/${key}`, { value })
+    );
+    return Promise.all(promises);
+  },
+
+  getMaintenanceStatus: () =>
+    api.get<{ data: { maintenanceMode: boolean; message: string | null } }>('/admin/settings/maintenance'),
+
+  toggleMaintenance: (enabled: boolean, message?: string) =>
+    api.put('/admin/settings/maintenance', { enabled, message }),
 
   getLegal: (type: string) =>
     api.get<{ data: { content: string; version: string } }>(`/admin/legal/${type}`),

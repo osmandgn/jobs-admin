@@ -34,6 +34,7 @@ export default function JobsPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
 
   const { data: jobsData, isLoading } = useQuery({
     queryKey: ['jobs', page, search, statusFilter],
@@ -70,12 +71,13 @@ export default function JobsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: jobsAPI.delete,
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => jobsAPI.delete(id, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       setShowDeleteModal(false);
       setSelectedJob(null);
+      setDeleteReason('');
     },
   });
 
@@ -417,7 +419,10 @@ export default function JobsPage() {
         {/* Delete Confirmation Modal */}
         <Modal
           isOpen={showDeleteModal}
-          onClose={() => setShowDeleteModal(false)}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setDeleteReason('');
+          }}
           title="Delete Job"
         >
           {selectedJob && (
@@ -427,15 +432,34 @@ export default function JobsPage() {
                 <span className="font-semibold">{selectedJob.title}</span>? This action
                 cannot be undone.
               </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason for deletion <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  placeholder="Enter the reason for deleting this job..."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  rows={3}
+                />
+              </div>
               <div className="flex gap-3 justify-end">
-                <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeleteReason('');
+                  }}
+                >
                   Cancel
                 </Button>
                 <Button
                   variant="danger"
-                  onClick={() => deleteMutation.mutate(selectedJob.id)}
+                  onClick={() => deleteMutation.mutate({ id: selectedJob.id, reason: deleteReason })}
+                  disabled={!deleteReason.trim() || deleteMutation.isPending}
                 >
-                  Delete Job
+                  {deleteMutation.isPending ? 'Deleting...' : 'Delete Job'}
                 </Button>
               </div>
             </div>

@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Check,
   Loader2,
+  Smartphone,
 } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -42,13 +43,13 @@ export default function SettingsPage() {
     timezone: 'Europe/London',
     currency: 'GBP',
 
-    // Jobs
-    jobApprovalRequired: true,
-    maxImagesPerJob: 5,
-    jobExpiryDays: 30,
-    featuredJobPrice: 9.99,
-    minPayAmount: 10,
-    maxPayAmount: 10000,
+    // Jobs (snake_case to match backend)
+    job_requires_approval: true,
+    max_images_per_job: 5,
+    job_expiry_days: 30,
+    featured_job_price: 9.99,
+    min_pay_amount: 10,
+    max_pay_amount: 10000,
 
     // Users
     emailVerificationRequired: true,
@@ -81,6 +82,13 @@ export default function SettingsPage() {
     // Maintenance
     maintenanceMode: false,
     maintenanceMessage: 'We are currently performing maintenance. Please check back soon.',
+
+    // App Version
+    min_app_version_ios: '1.0.0',
+    min_app_version_android: '1.0.0',
+    force_update_message: 'A new version of GigHub is available. Please update to continue using the app.',
+    app_store_url: 'https://apps.apple.com/app/gighub-uk/id123456789',
+    play_store_url: 'https://play.google.com/store/apps/details?id=uk.gighub.app',
   };
 
   const [settings, setSettings] = useState(defaultSettings);
@@ -91,9 +99,20 @@ export default function SettingsPage() {
     queryFn: settingsAPI.getAll,
   });
 
-  // Update mutation
+  // Update mutation for general settings
   const updateMutation = useMutation({
-    mutationFn: (data: Record<string, any>) => settingsAPI.update(data),
+    mutationFn: (data: Record<string, any>) => settingsAPI.updateMultiple(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    },
+  });
+
+  // Separate mutation for maintenance mode
+  const maintenanceMutation = useMutation({
+    mutationFn: ({ enabled, message }: { enabled: boolean; message?: string }) =>
+      settingsAPI.toggleMaintenance(enabled, message),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       setSaved(true);
@@ -154,10 +173,26 @@ export default function SettingsPage() {
       icon: <Settings className="w-5 h-5" />,
       description: 'Maintenance mode settings',
     },
+    {
+      id: 'appversion',
+      title: 'App Version',
+      icon: <Smartphone className="w-5 h-5" />,
+      description: 'Force update settings',
+    },
   ];
 
   const handleSave = async () => {
-    updateMutation.mutate(settings);
+    if (activeSection === 'maintenance') {
+      // Use separate maintenance endpoint
+      maintenanceMutation.mutate({
+        enabled: settings.maintenanceMode,
+        message: settings.maintenanceMessage,
+      });
+    } else {
+      // For other settings, exclude maintenance fields and update individually
+      const { maintenanceMode, maintenanceMessage, ...otherSettings } = settings;
+      updateMutation.mutate(otherSettings);
+    }
   };
 
   if (isLoading) {
@@ -255,50 +290,50 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-500">New jobs require admin approval before going live</p>
               </div>
               <ToggleSwitch
-                enabled={settings.jobApprovalRequired}
-                onChange={(value) => setSettings({ ...settings, jobApprovalRequired: value })}
+                enabled={settings.job_requires_approval}
+                onChange={(value) => setSettings({ ...settings, job_requires_approval: value })}
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
                 label="Max Images Per Job"
                 type="number"
-                value={settings.maxImagesPerJob.toString()}
+                value={settings.max_images_per_job.toString()}
                 onChange={(e) =>
-                  setSettings({ ...settings, maxImagesPerJob: parseInt(e.target.value) })
+                  setSettings({ ...settings, max_images_per_job: parseInt(e.target.value) })
                 }
               />
               <Input
                 label="Job Expiry (Days)"
                 type="number"
-                value={settings.jobExpiryDays.toString()}
+                value={settings.job_expiry_days.toString()}
                 onChange={(e) =>
-                  setSettings({ ...settings, jobExpiryDays: parseInt(e.target.value) })
+                  setSettings({ ...settings, job_expiry_days: parseInt(e.target.value) })
                 }
               />
               <Input
                 label="Featured Job Price (£)"
                 type="number"
                 step="0.01"
-                value={settings.featuredJobPrice.toString()}
+                value={settings.featured_job_price.toString()}
                 onChange={(e) =>
-                  setSettings({ ...settings, featuredJobPrice: parseFloat(e.target.value) })
+                  setSettings({ ...settings, featured_job_price: parseFloat(e.target.value) })
                 }
               />
               <Input
                 label="Minimum Pay Amount (£)"
                 type="number"
-                value={settings.minPayAmount.toString()}
+                value={settings.min_pay_amount.toString()}
                 onChange={(e) =>
-                  setSettings({ ...settings, minPayAmount: parseInt(e.target.value) })
+                  setSettings({ ...settings, min_pay_amount: parseInt(e.target.value) })
                 }
               />
               <Input
                 label="Maximum Pay Amount (£)"
                 type="number"
-                value={settings.maxPayAmount.toString()}
+                value={settings.max_pay_amount.toString()}
                 onChange={(e) =>
-                  setSettings({ ...settings, maxPayAmount: parseInt(e.target.value) })
+                  setSettings({ ...settings, max_pay_amount: parseInt(e.target.value) })
                 }
               />
             </div>
@@ -557,6 +592,61 @@ export default function SettingsPage() {
           </div>
         );
 
+      case 'appversion':
+        return (
+          <div className="space-y-6">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-800 font-medium">Force Update Configuration</p>
+              <p className="text-blue-600 text-sm mt-1">
+                Set minimum required app versions. Users with older versions will be forced to update.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Input
+                label="Minimum iOS Version"
+                value={settings.min_app_version_ios}
+                onChange={(e) => setSettings({ ...settings, min_app_version_ios: e.target.value })}
+                placeholder="1.0.0"
+              />
+              <Input
+                label="Minimum Android Version"
+                value={settings.min_app_version_android}
+                onChange={(e) => setSettings({ ...settings, min_app_version_android: e.target.value })}
+                placeholder="1.0.0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Force Update Message
+              </label>
+              <textarea
+                value={settings.force_update_message}
+                onChange={(e) => setSettings({ ...settings, force_update_message: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500"
+                rows={3}
+                placeholder="Message shown to users who need to update..."
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+              <Input
+                label="App Store URL (iOS)"
+                value={settings.app_store_url}
+                onChange={(e) => setSettings({ ...settings, app_store_url: e.target.value })}
+                placeholder="https://apps.apple.com/app/..."
+              />
+              <Input
+                label="Play Store URL (Android)"
+                value={settings.play_store_url}
+                onChange={(e) => setSettings({ ...settings, play_store_url: e.target.value })}
+                placeholder="https://play.google.com/store/apps/..."
+              />
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -571,8 +661,8 @@ export default function SettingsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
             <p className="text-gray-500 mt-1">Manage platform configuration</p>
           </div>
-          <Button variant="primary" onClick={handleSave} disabled={updateMutation.isPending}>
-            {updateMutation.isPending ? (
+          <Button variant="primary" onClick={handleSave} disabled={updateMutation.isPending || maintenanceMutation.isPending}>
+            {updateMutation.isPending || maintenanceMutation.isPending ? (
               <>
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                 Saving...
